@@ -7,7 +7,8 @@ import pandas as pd
 import dash
 import dash_core_components as dcc
 import dash_html_components as html
-from dash.dependencies import Input, Output
+from dash.dependencies import Input, Output, State
+import plotly.graph_objects as go
 import matplotlib.pyplot as plt
 import shap
 import _io as io
@@ -133,8 +134,151 @@ app.layout = html.Div(style={'backgroundColor': "color"},children=[
                 ],className="twelve columns"),
         ], className="row"),
     
- 
     
+#INDICATEUR + PROBA    
+    html.Div(
+        [
+            html.Div(
+                [
+                    dcc.Markdown(id='display_loan',style={'marginLeft': 50 }),
+                ],className="four columns"),
+            html.Div(
+                [
+                    html.H5(children='Probabilité de défaut de crédit',style={'color': rouge }),
+                    dcc.Graph(id='indicateur',style={'text-align':'center'}),
+
+                    dcc.Markdown('''  
+**Seuil de défaut : 49.4 %**  
+**Seuil au minimum de pertes attendues : 73%**  
+*Taux de perte si défaut de crédit: 70%*      
+*Taux de perte si refus de crédit : 20%* ''',style={'marginLeft': 50,'color': 'gray','margin-top':'10px','font-size': '12px'} ),
+                                    
+                ],
+                className="four columns"
+            ),
+
+            html.Div(
+                [
+                    dcc.Markdown(id='disp_prob'),
+                ],className="four columns"),
+        ], className="row"),
+
+
+#EXPLICATION DU MODELE
+    html.H5(children='''
+                     Interprétation  
+                   ''',style={'text-align':'center','color': "white",'backgroundColor':'black'}),
+
+    html.Div(
+        [
+            html.Div(
+                [
+                        html.Label(children='''
+                       Variables importantes du modèle
+                   ''',style={'marginLeft': 50,'text-align':'left'}),
+                         html.Label(children='''
+                           ROUGE: valeurs hautes de la variable                                                        
+                                   ''',style={'marginLeft': 50,'text-align':'left','color': rouge,'font-size': '12px'}),
+                         html.Label(children='''
+                           BLEU: valeurs basses de la variable                                                       
+                                   ''',style={'marginLeft': 50,'text-align':'left','color': bleue,'font-size': '12px'}),
+                        #affichage du summer plot shap violon
+ 
+                        html.Div(children = display_summary_plot(encoded_sum),style={"border":"2px"}),
+
+
+                ], className = "five columns"
+            ),
+
+             html.Div(
+                [
+                    html.Label(['Choisissez une valeur à afficher:'],style={ "text-align": "left"}),
+                    dcc.Dropdown(id='dropdown_num', options=[
+                    {'label': i, 'value': i} for i in df_client[colnum].columns.sort_values()
+                        ], multi=False, placeholder='Please select...'), 
+                    dcc.Checklist(id='check_num',
+                                options=[
+                            {'label': 'Par caratéristique', 'value': 'yes'},
+                            ], ),  
+                    
+                     dcc.Graph(id='bar_plot'),  
+                   
+                ],
+                className="four columns"
+             ),
+            html.Div(
+                [
+                    html.Label(['Choisissez une caractéristique à explorer:'],style={ "text-align": "left"}),
+                    dcc.Dropdown(id='dropdown_cat', options=[
+                    {'label': i, 'value': i} for i in colpie
+                        ], multi=False, placeholder='Please select...'), 
+                    dcc.RadioItems(
+                                id='filter_pie',
+                                options=[{'label': i, 'value': i} for i in ['Clients en défaut', 'solvables']],
+                                value='solvables',
+                                labelStyle={'display': 'inline-block'}),
+                    dcc.Graph(id='pie_plot'), 
+                    
+                ],
+                className="three columns"
+             ),
+
+        ], className="row"),    
+    
+#explication client   
+ html.Div(
+        [
+            html.Div(
+                [
+              
+                        html.Label(children='''
+                                    Interprétation de la probabilité de défaut du client
+                                   ''',style={'text-align':'center','color': "white",'backgroundColor':'black'}), 
+                        html.Label(children='''
+                ROUGE: variables qui contribuent à augmenter la probabilité de défaut                                                        
+                                   ''',style={'marginLeft': 50,'text-align':'left','color': rouge,'font-size': '12px'}),
+                        html.Label(children='''
+                BLEU: variables qui contribuent à baisser la probabilitéde defaut                                                        
+                                   ''',style={'marginLeft': 50,'text-align':'left','color': bleue,'font-size': '12px',
+                                             }),
+                    
+                        #affichage du plot shap force client
+                        dcc.Loading(
+                            id='explainer-obj',
+                            type="default",style={'marginTop': 0, 'marginBottom': 0}
+                                ),
+                         html.Label(children='''
+                                    Dictionnaire des variables
+                                   ''',style={'margin-bottom': 10,'text-align':'center','color': "white",'backgroundColor':'black'}),
+                    #affichage du dictionnaire des variables
+                         html.Div(
+                            [
+                                dcc.Dropdown(id='dropdown_dic', options=[
+                                {'label': i, 'value': i} for i in coldef
+                                    ], multi=False, placeholder='Please select...',
+                                     )
+                            ],className="five columns"),
+                             
+
+                          html.Div(
+                            [
+                            html.Div(id='dd-output-container',style={'marginLeft': 20}),
+                                
+                            ],className="five columns"),
+                        
+
+                ],className="eight columns"),  
+            
+            html.Div(
+                [
+                                   
+                        #affichage du plot bar shap client
+                        dcc.Loading(
+                            id='explainer-w-obj',
+                            type="default"
+                                ),
+                ],className="four columns"), 
+        ], className="row"),
 
 ])
 
