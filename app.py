@@ -676,4 +676,4 @@ def display_loan(selected_value):
 #app.run_server(mode='inline', port=8069)
 
 if __name__ == '__main__':
-    app.run_server(debug=False)
+    app.run_server(debug=True)
