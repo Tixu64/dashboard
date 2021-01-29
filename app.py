@@ -105,7 +105,7 @@ app = dash.Dash(__name__, external_stylesheets=external_stylesheets)
 
 app.layout = html.Div(style={'backgroundColor': "color"},children=[
     
-server = app.server
+
     
 
 # LOGO + TITRE + DROPDOWN
