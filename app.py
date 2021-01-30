@@ -14,7 +14,7 @@ import _io as io
 import base64
 from sklearn.metrics import confusion_matrix
 import pickle
-from shap import force_plot
+#from shap import force_plot
 
 
 with open('df_client_dash.pkl','rb') as fp:
