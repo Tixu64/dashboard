@@ -10,3 +10,4 @@ plotly
 matplotlib
 shap==0.38.1
 scikit-learn
+lightgbm
