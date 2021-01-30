@@ -35,6 +35,28 @@ with open('encoded_sum.pkl','rb') as fp:
 with open('lgbm.pkl','rb') as fp:
     lgbm= pickle.load(fp)   
 
+with open('encoded_sum.pkl','rb') as fp:
+    encoded_sum= pickle.load(fp)
+
+def display_summary_plot(encoded_sum) : 
+    #plt.close('all') #pour éviter les superposition de graphiques
+    shap_html =''
+    #summary_plot = shap.summary_plot(shap_values[1], df_client[selected_features],plot_type="violin", 
+                                     #show=False,max_display=10)
+    #color='RdGy',
+    """ figure to html base64 png image """ 
+    #tmpfile_sum = io.BytesIO()
+    #plt.tight_layout()
+    #plt.savefig(tmpfile_sum, format='png',facecolor='w',transparent=False,edgecolor=color,dpi=70)
+    #encoded_sum = base64.b64encode(tmpfile_sum.getvalue()).decode('utf-8')
+    shap_html = html.Img(src=f"data:image/png;base64, {encoded_sum}")
+    #del tmpfile_sum
+    #del summary_plot
+    #del encoded_sum
+    #plt.close('all')
+    return shap_html
+
+
 #definition de liste de variables pour les affichage
 colpie=['CODE_GENDER','FLAG_OWN_CAR',
      'FLAG_OWN_REALTY','NAME_INCOME_TYPE','NAME_EDUCATION_TYPE','NAME_FAMILY_STATUS','NAME_HOUSING_TYPE']
@@ -77,6 +99,18 @@ app.layout = html.Div(style={'backgroundColor': "color"},children=[
 *Taux de perte si refus de crédit : 20%* ''',style={'marginLeft': 50,'color': 'gray','margin-top':'10px','font-size': '12px'} ),
 
                     dcc.Markdown(id='disp_prob'),
+                    html.Label(children='''
+                       Variables importantes du modèle
+                   ''',style={'marginLeft': 50,'text-align':'left'}),
+                   html.Label(children='''
+                           ROUGE: valeurs hautes de la variable                                                        
+                                   ''',style={'marginLeft': 50,'text-align':'left','color': rouge,'font-size': '12px'}),
+                 html.Label(children='''
+                           BLEU: valeurs basses de la variable                                                       
+                                   ''',style={'marginLeft': 50,'text-align':'left','color': bleue,'font-size': '12px'}),
+                        #affichage du summer plot shap violon
+ 
+                html.Div(children = display_summary_plot(encoded_sum),style={"border":"2px"}),
 
 ])
                                                      
