@@ -10,7 +10,8 @@ import dash_html_components as html
 from dash.dependencies import Input, Output, State
 import plotly.graph_objects as go
 import matplotlib.pyplot as plt
-
+import _io as io
+import base64
 
 
 
