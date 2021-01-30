@@ -1,5 +1,6 @@
 # Run this app with `python app.py` 
 
+import shap
 import numpy as np
 import pandas as pd 
 #import plotly.express as px
