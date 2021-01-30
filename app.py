@@ -111,9 +111,193 @@ app.layout = html.Div(style={'backgroundColor': "color"},children=[
                         #affichage du summer plot shap violon
  
                 html.Div(children = display_summary_plot(encoded_sum),style={"border":"2px"}),
+                html.Label(['Choisissez une valeur à afficher:'],style={ "text-align": "left"}),
+                dcc.Dropdown(id='dropdown_num', options=[
+                    {'label': i, 'value': i} for i in df_client[colnum].columns.sort_values()
+                        ], multi=False, placeholder='Please select...'), 
+                dcc.Checklist(id='check_num',
+                                options=[
+                            {'label': 'Par caratéristique', 'value': 'yes'},
+                            ], ),  
+                    
+                dcc.Graph(id='bar_plot'),  
+                
+                html.Label(['Choisissez une caractéristique à explorer:'],style={ "text-align": "left"}),
+                    dcc.Dropdown(id='dropdown_cat', options=[
+                    {'label': i, 'value': i} for i in colpie
+                        ], multi=False, placeholder='Please select...'), 
+               dcc.RadioItems(
+                                id='filter_pie',
+                                options=[{'label': i, 'value': i} for i in ['Clients en défaut', 'solvables']],
+                                value='solvables',
+                                labelStyle={'display': 'inline-block'}),
+               dcc.Graph(id='pie_plot'), 
+                    
+                     
 
 ])
-                                                     
+   
+#pie plot
+@app.callback(Output('pie_plot', 'figure'), 
+              Input('dropdown_client', 'value'),
+              Input('dropdown_cat','value'),
+              Input('filter_pie','value'))
+def pie_plot(id_client, parameter,classe):
+    
+    if classe == 'solvables':
+        y = 0
+    else:
+        y=1
+    
+    if (id_client is not None) & (parameter is not None):
+        
+        dv=df_client[parameter][df_client['TARGET'] == y].value_counts()
+        dv=pd.DataFrame(dv)
+        dv=dv.reset_index().reset_index()
+        
+        val = df_client[parameter][df_client.SK_ID_CURR == id_client].to_numpy()
+
+        val=val[0]
+      
+        dv['level_0'][dv['index'] == val] = -1
+        dv = dv.sort_values(by='level_0')
+        dv['label'] = dv[parameter]
+        #print(dv)
+
+        colors = ['lightgrey','tan','lightyellow', 'navajowhite','salmon','coral']
+
+        fig = go.Figure(data=[go.Pie(labels=dv['index'],pull=[0.1, 0, 0, 0,0,0],
+                             values=dv['label'], name="World GDP 1980")])
+        fig.update_traces(marker=dict(colors=colors))
+        #fig.update_yaxes(automargin=True) 
+        fig.update_layout(margin=dict(l=50, r=0, t=0, b=50))
+        fig.update_layout(height=400,
+                          title_font_size=14, title_font_color="black",
+                          legend=dict(
+                                        #orientation="h",
+                                        yanchor="bottom",
+                                        y=1.02,
+                                        xanchor="right",
+                                        x=1
+                        ))
+        fig.update_layout(legend_title_text="Classe du CLIENT: <b>{}<b>".format(val))
+
+        return fig
+    else:
+        fig = {}
+        return {
+                "layout": {
+                "xaxis": {
+                "visible": False
+                            },
+                "yaxis": {
+                "visible": False
+                            },
+                "annotations": [
+                        {
+                            "text": "No matching data found",
+                            "xref": "paper",
+                            "yref": "paper",
+                            "showarrow": False,
+                            "font": {
+                            "size": 18
+                }
+            }
+        ]
+    }
+}
+
+
+
+#bar plot num client
+@app.callback(Output('bar_plot', 'figure'), 
+              Input('dropdown_client', 'value'),
+              Input('dropdown_num','value'),
+              Input('dropdown_cat','value'),
+              Input('check_num','value')
+             )
+def bar_plot(id_client, parameter,cat,check):
+     
+    
+    titre = ''   
+    pformat='%{text:,.2f}'
+    
+    if (id_client is not None) & (parameter is not None):
+        val =''
+        x = ['<b>CLIENT<b>', '<b>EN DEFAUT<b>', 
+             '<b>SOLVABLES<b>']
+        y = [df_client[parameter][df_client.SK_ID_CURR == id_client].values[0],
+                df_client[parameter][df_client.TARGET == 1].mean(),df_client[parameter][df_client.TARGET == 0].mean()]
+        if (check == ['yes']) &  (cat is not None):  
+            
+            val = df_client[cat][df_client.SK_ID_CURR == id_client].to_numpy()
+            val=val[0]
+            titre = "<br> avec " + cat + ":" +val
+            
+            y = [df_client[parameter][df_client.SK_ID_CURR == id_client].values[0],
+                 df_client[parameter][(df_client.TARGET == 1) & (df_client[cat]==val) ].mean(),
+                 df_client[parameter][(df_client.TARGET == 0)  & (df_client[cat]==val)].mean()]
+        else:
+                y = [df_client[parameter][df_client.SK_ID_CURR == id_client].values[0],
+                df_client[parameter][df_client.TARGET == 1].mean(),df_client[parameter][df_client.TARGET == 0].mean()]
+
+
+        if df_client[parameter].dtype == np.int64:
+            pformat == '%{text:,.0f}' 
+
+        
+        fig = go.Figure()
+        fig.add_trace(go.Bar(
+        x=x,
+        y=y,
+        text=y,
+        textposition='outside',
+        texttemplate=pformat,
+        width=[0.6, 0.6,0.6],
+        marker=dict(
+        #color='rgba(50, 171, 96, 0.6)',
+            color=["grey",rouge,bleue],
+            opacity = [0.8,0.8,0.5],
+            line=dict(
+                color='rgba(50, 171, 96, 1.0)',
+                width=0)
+        )))
+        #fig.update_xaxes(title_text=parameter)
+        fig.update_yaxes(title_text='valeur')
+        fig.layout.plot_bgcolor = "white"
+        fig.update_xaxes(showline=False, linewidth=2, linecolor='black',gridcolor='white',)
+        fig.update_yaxes(showline=False, linewidth=2, linecolor='black',gridcolor='lightgrey', zeroline=True, zerolinewidth=2, zerolinecolor='black')
+        #fig.update_yaxes(automargin=True)    
+        fig.update_layout(margin=dict(l=100, r=10, t=50, b=50),height=400)
+        fig.update_layout(title_text="Valeur du client comparée aux valeurs moyennes "+titre,
+                          title_font_size=14, title_font_color="black")
+        return fig
+    #height = 300,
+    else:
+        return {
+    "layout": {
+        "xaxis": {
+            "visible": False
+        },
+        "yaxis": {
+            "visible": False
+        },
+        "annotations": [
+            {
+                "text": "No matching data found",
+                "xref": "paper",
+                "yref": "paper",
+                "showarrow": False,
+                "font": {
+                    "size": 18
+                }
+            }
+        ]
+    }
+}
+
+
+                                                  
 #indicateur de probalilité
 @app.callback(Output('indicateur', 'figure'), 
               Input('dropdown_client', 'value'))
