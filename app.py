@@ -14,7 +14,7 @@ import _io as io
 import base64
 from sklearn.metrics import confusion_matrix
 import pickle
-import shap
+#import shap
 
 
 external_stylesheets = ['https://cdn.rawgit.com/plotly/dash-app-stylesheets/2d266c578d2a6e8850ebce48fdb52759b2aef506/stylesheet-oil-and-gas.css']
