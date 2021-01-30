@@ -8,6 +8,7 @@ pandas
 numpy
 plotly
 matplotlib
+ipython
 shap==0.38.1
 scikit-learn
 lightgbm
