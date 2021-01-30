@@ -1,5 +1,6 @@
 # Run this app with `python app.py` 
 
+import shap
 import numpy as np
 import pandas as pd 
 #import plotly.express as px
@@ -10,40 +11,34 @@ import dash_html_components as html
 from dash.dependencies import Input, Output, State
 import plotly.graph_objects as go
 import matplotlib.pyplot as plt
-import shap
 import _io as io
 import base64
-#from shap.plots._force_matplotlib import draw_additive_plot
 from sklearn.metrics import confusion_matrix
 import pickle
+#from shap import force_plot
 
-
-with open("colcat.pkl", 'rb') as f:
-    colcat = pickle.load(f)
-with open('colnum.pkl', 'rb') as f:
-    colnum = pickle.load(f)    
-with open('coldata.pkl', 'rb') as f:    
-    coldata = pickle.load(f)
-with open('colbase.pkl', 'rb') as f:    
-    colbase = pickle.load(f)   
 with open('select_features.pkl','rb') as fp:
     selected_features = pickle.load(fp)
-with open('lgbm.pkl','rb') as fp:
-    lgbm= pickle.load(fp)    
-with open('description.pkl','rb') as fp:
-    df_d= pickle.load(fp)
+
+with open('colnum.pkl', 'rb') as f:
+    colnum = pickle.load(f)  
+
 with open('df_client_dash.pkl','rb') as fp:
     df_client= pickle.load(fp)
-with open('shap_values.pkl','rb') as fp:
-    shap_values= pickle.load(fp)
-with open('shap_explainer.pkl','rb') as fp:
-    explainer= pickle.load(fp)    
+
+
+with open('encoded_logo.pkl','rb') as fp:
+    encoded_logo= pickle.load(fp)   
+    
+with open('encoded_sum.pkl','rb') as fp:
+    encoded_sum= pickle.load(fp)   
+    
+with open('lgbm.pkl','rb') as fp:
+    lgbm= pickle.load(fp)   
+
 with open('encoded_sum.pkl','rb') as fp:
     encoded_sum= pickle.load(fp)
-with open('encoded_logo.pkl','rb') as fp:
-    encoded_logo= pickle.load(fp)    
 
-# Fonction de génération HTML du graphique DASH SUMMARY
 def display_summary_plot(encoded_sum) : 
     #plt.close('all') #pour éviter les superposition de graphiques
     shap_html =''
@@ -63,24 +58,6 @@ def display_summary_plot(encoded_sum) :
     return shap_html
 
 
-
-def display_summary_plot_bar() : 
-    plt.close('all') #pour éviter les superposition de graphiques
-    shap_html =''
-    summary_plot = shap.summary_plot(shap_values[1], df_client[selected_features], 
-                                     plot_type="bar",color=color,show=False)
-    """ figure to html base64 png image """ 
-    tmpfile_sum = io.BytesIO()
-    plt.tight_layout()
-    plt.savefig(tmpfile_sum, format='png',facecolor='w',transparent=False,dpi=50)
-    encoded_sum = base64.b64encode(tmpfile_sum.getvalue()).decode('utf-8')
-    shap_html = html.Img(src=f"data:image/png;base64, {encoded_sum}")
-    del tmpfile_sum
-    del summary_plot
-    del encoded_sum
-    plt.close('all')
-    return shap_html
-
 #definition de liste de variables pour les affichage
 colpie=['CODE_GENDER','FLAG_OWN_CAR',
      'FLAG_OWN_REALTY','NAME_INCOME_TYPE','NAME_EDUCATION_TYPE','NAME_FAMILY_STATUS','NAME_HOUSING_TYPE']
@@ -94,9 +71,6 @@ bleue= '#1e88e5'
 #couleur rouge
 rouge = '#ff0d57'
 
-#encoded_logo = base64.b64encode(open("logo_reduit.png", 'rb').read()).decode('ascii')
-#explainer = shap.TreeExplainer(lgbm)
-
 external_stylesheets = ['https://cdn.rawgit.com/plotly/dash-app-stylesheets/2d266c578d2a6e8850ebce48fdb52759b2aef506/stylesheet-oil-and-gas.css']
 
 app = dash.Dash(__name__, external_stylesheets=external_stylesheets)
@@ -106,185 +80,64 @@ server = app.server
 app.layout = html.Div(style={'backgroundColor': "color"},children=[
     
 
-    
-
-# LOGO + TITRE + DROPDOWN
-    html.Div(
-        [
-            html.Div(
-                [
                     html.Img(src='data:image/png;base64,{}'.format(encoded_logo)),
-                ], className = "two columns"
-            ),
-            html.Div(
-                [
                     html.H1(children='Tableau de bord "Prêt à depenser" '),
                     html.Label(['Choisissez un client:'],style={'font-weight': 'bold', "text-align": "left"}),
     
                     dcc.Dropdown(id='dropdown_client', options=[
                     {'label': i, 'value': i} for i in df_client.SK_ID_CURR.sort_values().unique()
                         ], multi=False, placeholder='Please select...',style=dict(width='50%')),
-                ],
-                className="ten columns"
-            ),
-            html.Div(
-                [
                     dcc.Graph(id='tableau'
                     ),
-                ],className="twelve columns"),
-        ], className="row"),
-    
-    
-#INDICATEUR + PROBA    
-    html.Div(
-        [
-            html.Div(
-                [
                     dcc.Markdown(id='display_loan',style={'marginLeft': 50 }),
-                ],className="four columns"),
-            html.Div(
-                [
                     html.H5(children='Probabilité de défaut de crédit',style={'color': rouge }),
+                    
                     dcc.Graph(id='indicateur',style={'text-align':'center'}),
-
-                    dcc.Markdown('''  
+                                        dcc.Markdown('''  
 **Seuil de défaut : 49.4 %**  
 **Seuil au minimum de pertes attendues : 73%**  
 *Taux de perte si défaut de crédit: 70%*      
 *Taux de perte si refus de crédit : 20%* ''',style={'marginLeft': 50,'color': 'gray','margin-top':'10px','font-size': '12px'} ),
-                                    
-                ],
-                className="four columns"
-            ),
 
-            html.Div(
-                [
                     dcc.Markdown(id='disp_prob'),
-                ],className="four columns"),
-        ], className="row"),
-
-
-#EXPLICATION DU MODELE
-    html.H5(children='''
-                     Interprétation  
-                   ''',style={'text-align':'center','color': "white",'backgroundColor':'black'}),
-
-    html.Div(
-        [
-            html.Div(
-                [
-                        html.Label(children='''
+                    html.Label(children='''
                        Variables importantes du modèle
                    ''',style={'marginLeft': 50,'text-align':'left'}),
-                         html.Label(children='''
+                   html.Label(children='''
                            ROUGE: valeurs hautes de la variable                                                        
                                    ''',style={'marginLeft': 50,'text-align':'left','color': rouge,'font-size': '12px'}),
-                         html.Label(children='''
+                 html.Label(children='''
                            BLEU: valeurs basses de la variable                                                       
                                    ''',style={'marginLeft': 50,'text-align':'left','color': bleue,'font-size': '12px'}),
                         #affichage du summer plot shap violon
  
-                        html.Div(children = display_summary_plot(encoded_sum),style={"border":"2px"}),
-
-
-                ], className = "five columns"
-            ),
-
-             html.Div(
-                [
-                    html.Label(['Choisissez une valeur à afficher:'],style={ "text-align": "left"}),
-                    dcc.Dropdown(id='dropdown_num', options=[
+                html.Div(children = display_summary_plot(encoded_sum),style={"border":"2px"}),
+                html.Label(['Choisissez une valeur à afficher:'],style={ "text-align": "left"}),
+                dcc.Dropdown(id='dropdown_num', options=[
                     {'label': i, 'value': i} for i in df_client[colnum].columns.sort_values()
                         ], multi=False, placeholder='Please select...'), 
-                    dcc.Checklist(id='check_num',
+                dcc.Checklist(id='check_num',
                                 options=[
                             {'label': 'Par caratéristique', 'value': 'yes'},
                             ], ),  
                     
-                     dcc.Graph(id='bar_plot'),  
-                   
-                ],
-                className="four columns"
-             ),
-            html.Div(
-                [
-                    html.Label(['Choisissez une caractéristique à explorer:'],style={ "text-align": "left"}),
+                dcc.Graph(id='bar_plot'),  
+                
+                html.Label(['Choisissez une caractéristique à explorer:'],style={ "text-align": "left"}),
                     dcc.Dropdown(id='dropdown_cat', options=[
                     {'label': i, 'value': i} for i in colpie
                         ], multi=False, placeholder='Please select...'), 
-                    dcc.RadioItems(
+               dcc.RadioItems(
                                 id='filter_pie',
                                 options=[{'label': i, 'value': i} for i in ['Clients en défaut', 'solvables']],
                                 value='solvables',
                                 labelStyle={'display': 'inline-block'}),
-                    dcc.Graph(id='pie_plot'), 
+               dcc.Graph(id='pie_plot'), 
                     
-                ],
-                className="three columns"
-             ),
-
-        ], className="row"),    
-    
-#explication client   
- html.Div(
-        [
-            html.Div(
-                [
-              
-                        html.Label(children='''
-                                    Interprétation de la probabilité de défaut du client
-                                   ''',style={'text-align':'center','color': "white",'backgroundColor':'black'}), 
-                        html.Label(children='''
-                ROUGE: variables qui contribuent à augmenter la probabilité de défaut                                                        
-                                   ''',style={'marginLeft': 50,'text-align':'left','color': rouge,'font-size': '12px'}),
-                        html.Label(children='''
-                BLEU: variables qui contribuent à baisser la probabilitéde defaut                                                        
-                                   ''',style={'marginLeft': 50,'text-align':'left','color': bleue,'font-size': '12px',
-                                             }),
-                    
-                        #affichage du plot shap force client
-                        dcc.Loading(
-                            id='explainer-obj',
-                            type="default",style={'marginTop': 0, 'marginBottom': 0}
-                                ),
-                         html.Label(children='''
-                                    Dictionnaire des variables
-                                   ''',style={'margin-bottom': 10,'text-align':'center','color': "white",'backgroundColor':'black'}),
-                    #affichage du dictionnaire des variables
-                         html.Div(
-                            [
-                                dcc.Dropdown(id='dropdown_dic', options=[
-                                {'label': i, 'value': i} for i in coldef
-                                    ], multi=False, placeholder='Please select...',
-                                     )
-                            ],className="five columns"),
-                             
-
-                          html.Div(
-                            [
-                            html.Div(id='dd-output-container',style={'marginLeft': 20}),
-                                
-                            ],className="five columns"),
-                        
-
-                ],className="eight columns"),  
-            
-            html.Div(
-                [
-                                   
-                        #affichage du plot bar shap client
-                        dcc.Loading(
-                            id='explainer-w-obj',
-                            type="default"
-                                ),
-                ],className="four columns"), 
-        ], className="row"),
+                     
 
 ])
-
-
-
-
+   
 #pie plot
 @app.callback(Output('pie_plot', 'figure'), 
               Input('dropdown_client', 'value'),
@@ -445,59 +298,114 @@ def bar_plot(id_client, parameter,cat,check):
 }
 
 
-
-
-
-
-#callback plot shap force
-@app.callback(Output('explainer-obj', 'children'), 
+                                                  
+#indicateur de probalilité
+@app.callback(Output('indicateur', 'figure'), 
               Input('dropdown_client', 'value'))
-def figure_shap_force_to_html(id_client ):
-    if id_client is not None:
-        
-        
-        with open('shap_values.pkl','rb') as fp:
-            shap_values= pickle.load(fp)
-        
-        x = df_client['index'][df_client.SK_ID_CURR == id_client].values.astype(int)[0]
-        force_plot =shap.force_plot(explainer.expected_value[1], shap_values[1][x], 
-                                    selected_features,matplotlib=False,link='logit')
-        #plot_cmap=["#FF6347","#949494"]
-        shap_html = f"<head>{shap.getjs()}</head><body>{force_plot.html()}</body>"
-        return html.Iframe(srcDoc=shap_html,
-                       style={"width": "100%", "height": "200px", "border": 0})
-    else :
-        return html.Label(['Choisissez un client pour afficher le graphique'],style={
-            'font-weight': 'bold', "text-align": "center",'font-style': 'italic'}),
-
-#callback explainer shap client (non utilisé)
-@app.callback(Output('explainer-w-obj', 'children'), 
-              Input('dropdown_client', 'value'))
-def figure_shap_waterfall_to_html(id_client ):
-    plt.close('all')
-    plt.style.use('ggplot')
-    if id_client is not None:
-            x = df_client['index'][df_client.SK_ID_CURR == id_client].values.astype(int)[0]
-            
-            waterfall_plot = shap.plots._waterfall.waterfall_legacy(explainer.expected_value[0], 
-                                           shap_values[1][x], features = df_client[selected_features].iloc[x], 
-                                           feature_names = selected_features, max_display = 10, show = False)
-
-            """ figure to html base64 png image """ 
-            tmpfile_w = io.BytesIO()
-            plt.tight_layout()
-            plt.rcParams['figure.facecolor'] = 'white'
-            plt.savefig(tmpfile_w, format='png',facecolor='w',transparent=False,dpi=50)
-            encoded_w = base64.b64encode(tmpfile_w.getvalue()).decode('utf-8')
-            shap_w_html = html.Img(src=f"data:image/png;base64, {encoded_w}")  
-            del waterfall_plot
-            del tmpfile_w
-            del encoded_w
-            plt.close('all')
-            return     html.Center(children = shap_w_html),
+def indicateur(selected_value):
+    
+    if selected_value is not None:
+            proba = lgbm.predict(df_client[selected_features][df_client.SK_ID_CURR == selected_value])[0]
     else:
-            return  html.Center(children = "")
+            proba = 0
+    
+    fig = go.Figure(go.Indicator(
+    mode = "number+gauge",
+    gauge= {'shape': "bullet",
+             'axis': {'range': [None, 100]},
+    
+             'bar': {'color': rouge,'thickness': 0.60},
+             'steps' : [{'range': [49.4,100], 'color': color}],
+             'threshold': {
+                'line': {'color': rouge, 'width': 2},
+                'thickness': 0.8, 'value':73},
+                         },
+    delta = {'reference': 150},
+    value = proba*100,
+    domain = {'x': [0.1, 1], 'y': [0, 1]},
+    title = {'text': "%"}))
+    fig.update_layout(height = 70,margin=dict(l=20, r=0, t=0, b=20))
+    return fig
+
+#call back affichage des fp et fn
+@app.callback(Output('display_loan', 'children'), 
+              Input('dropdown_client', 'value'))
+def display_loan(selected_value):
+         
+        if selected_value is not None:
+    
+            loan_val = df_client['AMT_CREDIT'][df_client.SK_ID_CURR == selected_value].values.astype(int)[0]
+            loan_price = df_client['AMT_GOODS_PRICE'][df_client.SK_ID_CURR == selected_value].values.astype(int)[0]
+            loan_annuity = df_client['AMT_ANNUITY'][df_client.SK_ID_CURR == selected_value].values.astype(int)[0]
+            loan_lenght = df_client['LENGTH_CREDIT'][df_client.SK_ID_CURR == selected_value].values.astype(int)[0]
+            loan_cnt = df_client['CNT_ACTIVE_LOAN'][df_client.SK_ID_CURR == selected_value].values.astype(int)[0]
+    
+           
+
+            return ('''
+> ###### Montant emprunté   : __{:,.0f}__  
+> - Mensualité        : {:,.0f}      
+> - Montant à financer: {:,.0f}   
+> - Durée             : {:,.1f}  
+> - Nombre de crédit  : {:,.0f}  
+      
+'''.format(loan_val,loan_annuity,loan_price,loan_lenght,loan_cnt))
+        else:
+            loan_val =0
+            
+            return ('''    
+   
+  ''')    
+
+
+
+#call back affichage des fp et fn
+@app.callback(Output('disp_prob', 'children'), 
+              Input('dropdown_client', 'value'))
+def display_proba(selected_value):
+    
+        loss_given_def = 0.7 #arbitraire à fixer avec le metier
+        gain_no_def = 0.2 #arbitraire à fixer avec le metier
+        threshold = 0.735 #proba de perte minimale calculee sur le jeu de test        
+        if selected_value is not None:
+    
+            loan_val = df_client['AMT_CREDIT'][df_client.SK_ID_CURR == selected_value].values.astype(int)[0]
+            
+            proba = lgbm.predict(df_client[selected_features][df_client.SK_ID_CURR == selected_value])[0]
+            y = df_client.TARGET
+    
+            y_pred_prob = lgbm.predict(df_client[selected_features])
+    
+            opp = 0
+            real = 0
+            total = 0
         
+            
+            #calcul pour la probabilité de defaut du client
+            prediction = y_pred_prob > proba
+
+            cm = confusion_matrix(y, prediction)
+            
+            pcm = cm/np.sum(cm)
+            
+            pfp = pcm[1,0]
+            pfn = pcm[0,1]
+
+            return ('''     
+> ###### Pour un seuil de défaut de __{:,.1f}%__  
+> - Mauvaise prédiction de solvabilité : {:,.0f}%  
+> - Mauvaise prédiction de défaut: {:,.0f}%  
+'''.format(proba*100,pfp*100,pfn*100))
+        else:
+            loan_val =0
+            pfp = 0
+            pfn = 0
+            proba = 0
+            
+            return (''' 
+   
+  ''')
+
 # Tableau de données client
 @app.callback(Output('tableau', 'figure'), 
               Input('dropdown_client', 'value'))
@@ -554,123 +462,6 @@ def update_table(id_client):
 
 
         return fig
-
-#affichage definition
-@app.callback(Output('dd-output-container', 'children'),
-              Input('dropdown_dic', 'value'))
-def update_output(parameter):
-    val = df_d['DESCRIPTION'][df_d.FEATURE == parameter].to_numpy()
-    #val=val[0]
-    return val
-
-    
-#indicateur de probalilité
-@app.callback(Output('indicateur', 'figure'), 
-              Input('dropdown_client', 'value'))
-def indicateur(selected_value):
-    
-    if selected_value is not None:
-            proba = lgbm.predict(df_client[selected_features][df_client.SK_ID_CURR == selected_value])[0]
-    else:
-            proba = 0
-    
-    fig = go.Figure(go.Indicator(
-    mode = "number+gauge",
-    gauge= {'shape': "bullet",
-             'axis': {'range': [None, 100]},
-    
-             'bar': {'color': rouge,'thickness': 0.60},
-             'steps' : [{'range': [49.4,100], 'color': color}],
-             'threshold': {
-                'line': {'color': rouge, 'width': 2},
-                'thickness': 0.8, 'value':73},
-                         },
-    delta = {'reference': 150},
-    value = proba*100,
-    domain = {'x': [0.1, 1], 'y': [0, 1]},
-    title = {'text': "%"}))
-    fig.update_layout(height = 70,margin=dict(l=20, r=0, t=0, b=20))
-    return fig
-
-
-
-#call back affichage des fp et fn
-@app.callback(Output('disp_prob', 'children'), 
-              Input('dropdown_client', 'value'))
-def display_proba(selected_value):
-    
-        loss_given_def = 0.7 #arbitraire à fixer avec le metier
-        gain_no_def = 0.2 #arbitraire à fixer avec le metier
-        threshold = 0.735 #proba de perte minimale calculee sur le jeu de test        
-        if selected_value is not None:
-    
-            loan_val = df_client['AMT_CREDIT'][df_client.SK_ID_CURR == selected_value].values.astype(int)[0]
-            
-            proba = lgbm.predict(df_client[selected_features][df_client.SK_ID_CURR == selected_value])[0]
-            y = df_client.TARGET
-    
-            y_pred_prob = lgbm.predict(df_client[selected_features])
-    
-            opp = 0
-            real = 0
-            total = 0
-        
-            
-            #calcul pour la probabilité de defaut du client
-            prediction = y_pred_prob > proba
-
-            cm = confusion_matrix(y, prediction)
-            
-            pcm = cm/np.sum(cm)
-            
-            pfp = pcm[1,0]
-            pfn = pcm[0,1]
-
-            return ('''     
-> ###### Pour un seuil de défaut de __{:,.1f}%__  
-> - Mauvaise prédiction de solvabilité : {:,.0f}%  
-> - Mauvaise prédiction de défaut: {:,.0f}%  
-'''.format(proba*100,pfp*100,pfn*100))
-        else:
-            loan_val =0
-            pfp = 0
-            pfn = 0
-            proba = 0
-            
-            return (''' 
-   
-  ''')
-    
-#call back affichage des fp et fn
-@app.callback(Output('display_loan', 'children'), 
-              Input('dropdown_client', 'value'))
-def display_loan(selected_value):
-         
-        if selected_value is not None:
-    
-            loan_val = df_client['AMT_CREDIT'][df_client.SK_ID_CURR == selected_value].values.astype(int)[0]
-            loan_price = df_client['AMT_GOODS_PRICE'][df_client.SK_ID_CURR == selected_value].values.astype(int)[0]
-            loan_annuity = df_client['AMT_ANNUITY'][df_client.SK_ID_CURR == selected_value].values.astype(int)[0]
-            loan_lenght = df_client['LENGTH_CREDIT'][df_client.SK_ID_CURR == selected_value].values.astype(int)[0]
-            loan_cnt = df_client['CNT_ACTIVE_LOAN'][df_client.SK_ID_CURR == selected_value].values.astype(int)[0]
-    
-           
-
-            return ('''
-> ###### Montant emprunté   : __{:,.0f}__  
-> - Mensualité        : {:,.0f}      
-> - Montant à financer: {:,.0f}   
-> - Durée             : {:,.1f}  
-> - Nombre de crédit  : {:,.0f}  
-      
-'''.format(loan_val,loan_annuity,loan_price,loan_lenght,loan_cnt))
-        else:
-            loan_val =0
-            
-            return ('''    
-   
-  ''')    
-
         
 #app.run_server(mode='external',debug=True, use_reloader=False)        
 #app.run_server(mode='inline', port=8069)
