@@ -16,6 +16,9 @@ from sklearn.metrics import confusion_matrix
 import pickle
 #from shap import force_plot
 
+with open('select_features.pkl','rb') as fp:
+    selected_features = pickle.load(fp)
+
 with open('colnum.pkl', 'rb') as f:
     colnum = pickle.load(f)  
 
@@ -63,9 +66,126 @@ app.layout = html.Div(style={'backgroundColor': "color"},children=[
                         ], multi=False, placeholder='Please select...',style=dict(width='50%')),
                     dcc.Graph(id='tableau'
                     ),
+                    dcc.Markdown(id='display_loan',style={'marginLeft': 50 }),
+                    html.H5(children='Probabilité de défaut de crédit',style={'color': rouge }),
                     
+                    dcc.Graph(id='indicateur',style={'text-align':'center'}),
+                                        dcc.Markdown('''  
+**Seuil de défaut : 49.4 %**  
+**Seuil au minimum de pertes attendues : 73%**  
+*Taux de perte si défaut de crédit: 70%*      
+*Taux de perte si refus de crédit : 20%* ''',style={'marginLeft': 50,'color': 'gray','margin-top':'10px','font-size': '12px'} ),
+
+                    dcc.Markdown(id='disp_prob'),
 
 ])
+                                                     
+#indicateur de probalilité
+@app.callback(Output('indicateur', 'figure'), 
+              Input('dropdown_client', 'value'))
+def indicateur(selected_value):
+    
+    if selected_value is not None:
+            proba = lgbm.predict(df_client[selected_features][df_client.SK_ID_CURR == selected_value])[0]
+    else:
+            proba = 0
+    
+    fig = go.Figure(go.Indicator(
+    mode = "number+gauge",
+    gauge= {'shape': "bullet",
+             'axis': {'range': [None, 100]},
+    
+             'bar': {'color': rouge,'thickness': 0.60},
+             'steps' : [{'range': [49.4,100], 'color': color}],
+             'threshold': {
+                'line': {'color': rouge, 'width': 2},
+                'thickness': 0.8, 'value':73},
+                         },
+    delta = {'reference': 150},
+    value = proba*100,
+    domain = {'x': [0.1, 1], 'y': [0, 1]},
+    title = {'text': "%"}))
+    fig.update_layout(height = 70,margin=dict(l=20, r=0, t=0, b=20))
+    return fig
+
+#call back affichage des fp et fn
+@app.callback(Output('display_loan', 'children'), 
+              Input('dropdown_client', 'value'))
+def display_loan(selected_value):
+         
+        if selected_value is not None:
+    
+            loan_val = df_client['AMT_CREDIT'][df_client.SK_ID_CURR == selected_value].values.astype(int)[0]
+            loan_price = df_client['AMT_GOODS_PRICE'][df_client.SK_ID_CURR == selected_value].values.astype(int)[0]
+            loan_annuity = df_client['AMT_ANNUITY'][df_client.SK_ID_CURR == selected_value].values.astype(int)[0]
+            loan_lenght = df_client['LENGTH_CREDIT'][df_client.SK_ID_CURR == selected_value].values.astype(int)[0]
+            loan_cnt = df_client['CNT_ACTIVE_LOAN'][df_client.SK_ID_CURR == selected_value].values.astype(int)[0]
+    
+           
+
+            return ('''
+> ###### Montant emprunté   : __{:,.0f}__  
+> - Mensualité        : {:,.0f}      
+> - Montant à financer: {:,.0f}   
+> - Durée             : {:,.1f}  
+> - Nombre de crédit  : {:,.0f}  
+      
+'''.format(loan_val,loan_annuity,loan_price,loan_lenght,loan_cnt))
+        else:
+            loan_val =0
+            
+            return ('''    
+   
+  ''')    
+
+
+
+#call back affichage des fp et fn
+@app.callback(Output('disp_prob', 'children'), 
+              Input('dropdown_client', 'value'))
+def display_proba(selected_value):
+    
+        loss_given_def = 0.7 #arbitraire à fixer avec le metier
+        gain_no_def = 0.2 #arbitraire à fixer avec le metier
+        threshold = 0.735 #proba de perte minimale calculee sur le jeu de test        
+        if selected_value is not None:
+    
+            loan_val = df_client['AMT_CREDIT'][df_client.SK_ID_CURR == selected_value].values.astype(int)[0]
+            
+            proba = lgbm.predict(df_client[selected_features][df_client.SK_ID_CURR == selected_value])[0]
+            y = df_client.TARGET
+    
+            y_pred_prob = lgbm.predict(df_client[selected_features])
+    
+            opp = 0
+            real = 0
+            total = 0
+        
+            
+            #calcul pour la probabilité de defaut du client
+            prediction = y_pred_prob > proba
+
+            cm = confusion_matrix(y, prediction)
+            
+            pcm = cm/np.sum(cm)
+            
+            pfp = pcm[1,0]
+            pfn = pcm[0,1]
+
+            return ('''     
+> ###### Pour un seuil de défaut de __{:,.1f}%__  
+> - Mauvaise prédiction de solvabilité : {:,.0f}%  
+> - Mauvaise prédiction de défaut: {:,.0f}%  
+'''.format(proba*100,pfp*100,pfn*100))
+        else:
+            loan_val =0
+            pfp = 0
+            pfn = 0
+            proba = 0
+            
+            return (''' 
+   
+  ''')
 
 # Tableau de données client
 @app.callback(Output('tableau', 'figure'), 
