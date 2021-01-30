@@ -8,5 +8,5 @@ pandas
 numpy
 plotly
 matplotlib
-shap
+shap==0.38.1
 scikit-learn
