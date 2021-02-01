@@ -148,7 +148,7 @@ app.layout = html.Div(style={'backgroundColor': "color"},children=[
                     dcc.Graph(id='indicateur',style={'text-align':'center'}),
 
                     dcc.Markdown('''  
-**Seuil de défaut : 49.4 %**  
+**Seuil de défaut : 48.4 %**  
 **Seuil au minimum de pertes attendues : 73%**  
 *Taux de perte si défaut de crédit: 70%*      
 *Taux de perte si refus de crédit : 20%* ''',style={'marginLeft': 50,'color': 'gray','margin-top':'10px','font-size': '12px'} ),
@@ -580,7 +580,7 @@ def indicateur(selected_value):
              'axis': {'range': [None, 100]},
     
              'bar': {'color': rouge,'thickness': 0.60},
-             'steps' : [{'range': [49.4,100], 'color': color}],
+             'steps' : [{'range': [48.4,100], 'color': color}],
              'threshold': {
                 'line': {'color': rouge, 'width': 2},
                 'thickness': 0.8, 'value':73},
